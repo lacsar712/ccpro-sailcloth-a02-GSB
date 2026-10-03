@@ -1,7 +1,9 @@
 <script setup>
 import { computed, onMounted, reactive, ref } from 'vue'
+import { useRouter } from 'vue-router'
 import api from '../api'
 
+const router = useRouter()
 const lofts = ref([])
 const rolls = ref([])
 const dips = ref([])
@@ -107,8 +109,12 @@ async function logDip() {
     if (selected.value.status === 'raw') {
       try {
         await api.patch(`/rolls/${selected.value.id}/`, { status: 'dipping' })
-      } catch {
-        /* 浸渍已记；状态跟进失败不阻断 */
+      } catch (patchErr) {
+        // 浸渍已写入，但无未归还绷架牌时状态跟进被挡：中文明示，不静默
+        panelError.value =
+          patchErr.response?.data?.status?.[0] ||
+          patchErr.response?.data?.detail ||
+          '浸渍记录已写入，但该卷没有未归还的绷架占用牌，暂不能改为浸渍中'
       }
     }
     dipForm.cureHours = ''
@@ -125,6 +131,10 @@ async function logDip() {
   }
 }
 
+function goStretchers() {
+  router.push({ name: 'stretchers' })
+}
+
 onMounted(load)
 </script>
 
@@ -133,7 +143,11 @@ onMounted(load)
     <header class="rack-head">
       <div>
         <h1>帆布间晾晒架</h1>
-        <p class="sub">按帆布间挂卷；点选布卷登记浸渍或标固化。固化规则：最近浸渍时长 ≥ 12 小时。</p>
+        <p class="sub">
+          按帆布间挂卷；原布改「浸渍中」前须先在
+          <router-link class="inline-link" :to="{ name: 'stretchers' }">绷架占用</router-link>
+          占一张未归还牌。固化规则：最近浸渍时长 ≥ 12 小时（与占架无关）。
+        </p>
       </div>
       <button class="btn secondary" type="button" @click="load">刷新架面</button>
     </header>
@@ -167,6 +181,7 @@ onMounted(load)
               {{ statusLabel[roll.status] || roll.status }}
             </span>
             <span class="chip-code">{{ roll.rollCode }}</span>
+            <span v-if="roll.stretcherNo != null" class="chip-stretcher">绷架 {{ roll.stretcherNo }} 号</span>
             <span class="chip-gsm">{{ roll.fabricWeightGsm }} gsm</span>
           </button>
           <p v-if="!group.rolls.length" class="empty-bay">此间暂无布卷</p>
@@ -208,10 +223,21 @@ onMounted(load)
         <span class="hang-tag" :class="'tag-' + selected.status">
           {{ statusLabel[selected.status] }}
         </span>
+        <span v-if="selected.stretcherNo != null" class="stretcher-pill">
+          占用绷架 {{ selected.stretcherNo }} 号
+        </span>
+        <span v-else-if="selected.status === 'raw'" class="stretcher-pill missing">未占架</span>
         <span class="hint">{{ selected.fabricWeightGsm }} gsm</span>
       </div>
       <p v-if="selected.notes" class="hint">{{ selected.notes }}</p>
       <p v-if="panelError" class="error">{{ panelError }}</p>
+
+      <div v-if="selected.status === 'raw' && selected.stretcherNo == null" class="tag-nudge panel">
+        <p class="hint" style="margin:0 0 8px">
+          该卷尚无未归还绷架占用牌，直接标「浸渍中」会被挡住。
+        </p>
+        <button class="btn" type="button" @click="goStretchers">去绷架占用占架</button>
+      </div>
 
       <div class="drawer-actions">
         <button

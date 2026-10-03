@@ -1,3 +1,5 @@
+from django.conf import settings
+from django.core.validators import MaxValueValidator, MinValueValidator
 from django.db import models
 
 
@@ -58,3 +60,52 @@ class DipRun(models.Model):
 
     def __str__(self):
         return f"Dip@{self.roll_id} {self.started_at}"
+
+
+class StretcherTag(models.Model):
+    """绷架占用牌：一卷布浸渍前须占一张牌；归还后架号可再用。"""
+
+    MIN_STRETCHER_NO = 1
+    MAX_STRETCHER_NO = 99
+
+    roll = models.ForeignKey(
+        ClothRoll, on_delete=models.CASCADE, related_name="stretcher_tags"
+    )
+    stretcher_no = models.PositiveSmallIntegerField(
+        validators=[
+            MinValueValidator(MIN_STRETCHER_NO),
+            MaxValueValidator(MAX_STRETCHER_NO),
+        ]
+    )
+    checked_out_at = models.DateTimeField(auto_now_add=True)
+    returned_at = models.DateTimeField(null=True, blank=True)
+    holder = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.PROTECT,
+        related_name="stretcher_tags_held",
+    )
+
+    class Meta:
+        ordering = ["-checked_out_at", "-id"]
+        constraints = [
+            # 同一绷架号在未归还期间不得被第二卷占用（并发抢架由数据库兜底）
+            models.UniqueConstraint(
+                fields=["stretcher_no"],
+                condition=models.Q(returned_at__isnull=True),
+                name="uniq_open_tag_per_stretcher",
+            ),
+            # 同一卷未归还牌最多一张
+            models.UniqueConstraint(
+                fields=["roll"],
+                condition=models.Q(returned_at__isnull=True),
+                name="uniq_open_tag_per_roll",
+            ),
+        ]
+
+    @property
+    def is_open(self) -> bool:
+        return self.returned_at is None
+
+    def __str__(self):
+        state = "占用" if self.is_open else "已归还"
+        return f"牌#{self.stretcher_no} {self.roll_id} {state}"
