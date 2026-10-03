@@ -83,7 +83,7 @@ async function setStatus(status) {
     panelError.value =
       data?.status?.[0] ||
       data?.detail ||
-      '状态更新失败（标「已固化」需最近浸渍固化时长 ≥ 12 小时）'
+      '状态更新失败（浸渍中需未归还绷架牌；已固化需最近浸渍固化时长 ≥ 12 小时）'
   } finally {
     panelBusy.value = false
   }
@@ -107,8 +107,11 @@ async function logDip() {
     if (selected.value.status === 'raw') {
       try {
         await api.patch(`/rolls/${selected.value.id}/`, { status: 'dipping' })
-      } catch {
-        /* 浸渍已记；状态跟进失败不阻断 */
+      } catch (e2) {
+        /* 浸渍已记；状态跟进被拦时给出中文原因 */
+        panelError.value =
+          e2.response?.data?.status?.[0] ||
+          '浸渍已记录，但跟进「浸渍中」被拦：请先占绷架牌'
       }
     }
     dipForm.cureHours = ''

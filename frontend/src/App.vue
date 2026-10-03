@@ -27,6 +27,7 @@ function logout() {
       </div>
       <nav>
         <router-link to="/">晾晒架</router-link>
+        <router-link to="/frames">绷架占用</router-link>
       </nav>
       <div class="nav-secondary">
         <p class="nav-sec-label">台账（次要）</p>

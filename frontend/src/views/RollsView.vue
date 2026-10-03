@@ -62,7 +62,7 @@ async function save() {
       data?.status?.[0] ||
       data?.rollCode?.[0] ||
       data?.detail ||
-      '保存失败（若标为已固化，请确认最近浸渍固化时长 ≥ 12 小时）'
+      '保存失败（浸渍中需未归还绷架牌；已固化需最近浸渍固化时长 ≥ 12 小时）'
   }
 }
 
